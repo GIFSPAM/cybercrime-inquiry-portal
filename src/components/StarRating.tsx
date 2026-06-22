@@ -23,7 +23,7 @@ export default function StarRating({ rating, onChange, onClearValidationError }:
 
       <div className="space-y-3">
         <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-600 font-sans">
-          How satisfied are you with this inquiry form portal? <span className="text-kerala-red font-bold">*</span>
+          How satisfied are you with our service? <span className="text-kerala-red font-bold">*</span>
         </span>
 
         <div className="grid grid-cols-5 gap-2">
