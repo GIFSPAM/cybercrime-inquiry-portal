@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Send, AlertCircle, LayoutGrid, Info, User, FileText, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import StarRating from './StarRating';
 import Combobox from './Combobox';
-import { CyberInquiry, Location } from '../types';
-import { fetchCategories, fetchLocations } from '../api';
+import { CyberInquiry, Location } from '../types/inquiry';
+import { fetchCategories, fetchLocations } from '../services/inquiry';
 
-/* ── Types ─────────────────────────────────────────────── */
+// Types
 
 interface InquiryFormProps {
-  onSubmit: (formData: CyberInquiry) => void;
+  onSubmit: (formData: Omit<CyberInquiry, 'rating' | 'feedback'>) => void;
 }
 
 interface CategoryRow {
@@ -18,24 +17,18 @@ interface CategoryRow {
   description: string;
 }
 
-/* ── Helpers ────────────────────────────────────────────── */
-
-/** Safely extract a message string from an unknown caught value. */
+// Helpers
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
   return 'An unexpected error occurred.';
 }
 
-/* ── Component ─────────────────────────────────────────── */
-
 export default function InquiryForm({ onSubmit }: InquiryFormProps) {
-  // Form field states
+  // Form states
   const [category, setCategory]               = useState('');
   const [location, setLocation]               = useState('');
   const [description, setDescription]         = useState('');
-  const [rating, setRating]                   = useState(0);
-  const [feedback, setFeedback]               = useState('');
   const [complainantName, setComplainantName] = useState('');
   const [complainantPhone, setComplainantPhone] = useState('');
 
@@ -43,16 +36,14 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
   const [error, setError]               = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Dropdown options (fetched from API layer)
+  // Dropdown options loaded from services
   const [categories, setCategories]       = useState<CategoryRow[]>([]);
   const [locations, setLocations]         = useState<Location[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
 
-  /* ── Fetch dropdown options on mount ─────────────────── */
-
+  // Fetch options on mount
   useEffect(() => {
     let active = true;
-
     async function loadOptions() {
       try {
         setLoadingOptions(true);
@@ -67,15 +58,13 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
         if (active) setLoadingOptions(false);
       }
     }
-
     loadOptions();
     return () => { active = false; };
   }, []);
 
-  /* ── Validation ──────────────────────────────────────── */
-
   const clearError = () => { if (error) setError(null); };
 
+  // Validation
   const validateForm = (): boolean => {
     if (!category) { setError('Please choose a crime category.'); return false; }
     if (!location)  { setError('Please choose a location.'); return false; }
@@ -83,13 +72,11 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
       setError('Please write a brief description of what happened (at least 15 characters).');
       return false;
     }
-    if (rating === 0) { setError('Please rate our service (1 to 5 stars).'); return false; }
     setError(null);
     return true;
   };
 
-  /* ── Submission ──────────────────────────────────────── */
-
+  // Submit form payload
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -101,10 +88,8 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
         category,
         location,
         description,
-        rating,
         complainantName:  complainantName.trim()  || undefined,
         complainantPhone: complainantPhone.trim() || undefined,
-        feedback:         feedback.trim()         || undefined,
       });
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -113,15 +98,10 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
     }
   };
 
-  /* ── Derived data ────────────────────────────────────── */
-
+  // Mapping state lists to dropdown options
   const selectedCategory = categories.find(c => c.id === category);
-
   const categoryOptions = categories.map(c => ({ value: c.id, label: c.name }));
-
   const locationOptions = locations.map(l => ({ value: l.id, label: `${l.name} (${l.taluk} Taluk)` }));
-
-  /* ── Shared input class string ───────────────────────── */
 
   const inputClass =
     'w-full bg-white border border-slate-300 py-3 px-3.5 text-xs sm:text-sm text-slate-800 ' +
@@ -298,29 +278,7 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
           </div>
         </div>
 
-        {/* Section 4 — Star Rating */}
-        <StarRating
-          rating={rating}
-          onChange={setRating}
-          onClearValidationError={clearError}
-        />
 
-        {/* Section 5 — Feedback (optional) */}
-        <div className="space-y-3 p-4 border border-slate-200 bg-slate-50/50 rounded text-left">
-          <label htmlFor="portal-feedback" className="block text-[11px] font-bold uppercase tracking-wide text-slate-650 font-sans">
-            Suggestions & Feedback{' '}
-            <span className="text-slate-400 font-normal font-sans text-[10px] lowercase">(optional)</span>
-          </label>
-          <textarea
-            id="portal-feedback"
-            rows={3}
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            placeholder="Help us improve. Share any suggestions or comments about your experience..."
-            className={`${inputClass} p-3 font-sans leading-relaxed`}
-            maxLength={1000}
-          />
-        </div>
 
         {/* Submit button */}
         <div className="pt-2">

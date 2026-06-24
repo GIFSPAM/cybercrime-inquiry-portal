@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Star } from 'lucide-react';
-import { SATISFACTION_LEVELS } from '../data';
+import { SATISFACTION_LEVELS } from '../constants/levels';
 
 interface StarRatingProps {
   rating: number;
