@@ -4,19 +4,16 @@ import { CyberInquiry, Location } from '../types/inquiry';
 // Insert new inquiry and return reference code
 export async function submitInquiry(formData: Omit<CyberInquiry, 'rating' | 'feedback'>): Promise<string> {
   const { data, error } = await supabase
-    .from('inquiries')
-    .insert([{
-      category_id: Number(formData.category),
-      location_id: Number(formData.location),
-      description: formData.description,
-      complainant_name: formData.complainantName || null,
-      complainant_phone: formData.complainantPhone || null,
-    }])
-    .select('reference_id')
-    .single();
+    .rpc('create_inquiry', {
+      p_category_id: Number(formData.category),
+      p_location_id: Number(formData.location),
+      p_description: formData.description,
+      p_complainant_name: formData.complainantName || null,
+      p_complainant_phone: formData.complainantPhone || null,
+    });
 
   if (error) throw error;
-  return data?.reference_id || '';
+  return data || '';
 }
 
 // Update rating and feedback securely via database function

@@ -186,6 +186,54 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Secure creation of a new inquiry (returns generated reference ID)
+CREATE OR REPLACE FUNCTION create_inquiry(
+    p_category_id INTEGER,
+    p_location_id INTEGER,
+    p_description TEXT,
+    p_complainant_name VARCHAR(255),
+    p_complainant_phone VARCHAR(20)
+)
+RETURNS TEXT AS $$
+DECLARE
+    v_phone TEXT;
+    v_reference_id VARCHAR(50);
+BEGIN
+    -- Validate description length boundary
+    IF char_length(p_description) < 15 OR char_length(p_description) > 1500 THEN
+        RAISE EXCEPTION 'Description must be between 15 and 1500 characters.';
+    END IF;
+
+    -- Validate phone number formatting (optional complainant phone)
+    IF p_complainant_phone IS NOT NULL AND p_complainant_phone <> '' THEN
+        -- Strip spaces and hyphens
+        v_phone := regexp_replace(p_complainant_phone, '[\s-]', '', 'g');
+        IF NOT v_phone ~ '^(?:\+91|0)?[6-9]\d{9}$' THEN
+            RAISE EXCEPTION 'Please enter a valid 10-digit phone number (optionally prefixed with +91 or 0).';
+        END IF;
+    END IF;
+
+    -- Insert record (trigger generates reference_id)
+    INSERT INTO inquiries (
+        category_id,
+        location_id,
+        description,
+        complainant_name,
+        complainant_phone
+    )
+    VALUES (
+        p_category_id,
+        p_location_id,
+        p_description,
+        NULLIF(p_complainant_name, ''),
+        NULLIF(p_complainant_phone, '')
+    )
+    RETURNING reference_id INTO v_reference_id;
+
+    RETURN v_reference_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ==========================================
 -- 6. ROLES PRIVILEGES (GRANT ACCESS)
 -- ==========================================
@@ -198,18 +246,17 @@ GRANT SELECT ON TABLE public.categories TO anon, authenticated;
 GRANT SELECT ON TABLE public.locations TO anon, authenticated;
 
 -- Inquiries table privileges
--- Grant full privileges only to authenticated users (admin role)
+-- Grant full privileges to authenticated users (admin/dashboard role)
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.inquiries TO authenticated;
--- Grant ONLY INSERT privilege to anon users (anonymous public submissions)
-GRANT INSERT ON TABLE public.inquiries TO anon;
 
--- Revoke direct SELECT & UPDATE privileges from anon to enforce function-only queries
-REVOKE SELECT, UPDATE ON TABLE public.inquiries FROM anon;
+-- Revoke direct SELECT, INSERT & UPDATE privileges on the inquiries table from anon role entirely
+REVOKE SELECT, INSERT, UPDATE ON TABLE public.inquiries FROM anon;
 
 -- Grant sequence privileges (to allow SERIAL auto-increment ID generation)
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 
 -- Grant execution rights to the secure database RPCs
+GRANT EXECUTE ON FUNCTION public.create_inquiry(INTEGER, INTEGER, TEXT, VARCHAR, VARCHAR) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_inquiry_by_reference(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.submit_inquiry_feedback(TEXT, INTEGER, TEXT) TO anon, authenticated;
 
