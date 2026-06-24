@@ -5,10 +5,9 @@ import { SATISFACTION_LEVELS } from '../constants/levels';
 interface StarRatingProps {
   rating: number;
   onChange: (rating: number) => void;
-  onClearValidationError?: () => void;
 }
 
-export default function StarRating({ rating, onChange, onClearValidationError }: StarRatingProps) {
+export default function StarRating({ rating, onChange }: StarRatingProps) {
   const [hovered, setHovered] = useState(0);
 
   // The "active" score is whichever is set: hover takes priority, then selection.
@@ -33,7 +32,7 @@ export default function StarRating({ rating, onChange, onClearValidationError }:
               <button
                 key={level.score}
                 type="button"
-                onClick={() => { onChange(level.score); onClearValidationError?.(); }}
+                onClick={() => onChange(level.score)}
                 onMouseEnter={() => setHovered(level.score)}
                 onMouseLeave={() => setHovered(0)}
                 className={`p-3 border flex flex-col items-center justify-center transition-all duration-150 cursor-pointer rounded bg-white hover:border-kerala-gold/60 active:scale-95 touch-manipulation min-h-[60px] ${

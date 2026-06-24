@@ -27,7 +27,9 @@ CREATE TABLE IF NOT EXISTS inquiries (
     complainant_phone VARCHAR(20),
     feedback TEXT,
     reference_id VARCHAR(50) UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_description_length CHECK (char_length(description) <= 1500),
+    CONSTRAINT chk_feedback_length CHECK (feedback IS NULL OR char_length(feedback) <= 1000)
 );
 
 -- ==========================================
@@ -96,11 +98,118 @@ CREATE POLICY "Allow public read access to locations"
 ON locations FOR SELECT USING (true);
 
 -- Inquiries policies
+-- Public can ONLY insert. RLS enforces that rating and feedback are NULL on initial creation.
 CREATE POLICY "Allow public insertion of new inquiries" 
-ON inquiries FOR INSERT WITH CHECK (true);
+ON inquiries FOR INSERT WITH CHECK (
+    rating IS NULL AND feedback IS NULL
+);
 
-CREATE POLICY "Allow public selection of inquiries by reference ID" 
-ON inquiries FOR SELECT USING (true);
+-- ==========================================
+-- 5. SECURE DATABASE FUNCTIONS (RPCs)
+-- ==========================================
 
-CREATE POLICY "Allow public update of rating and feedback" 
-ON inquiries FOR UPDATE USING (true) WITH CHECK (true);
+-- Secure lookup of case details by reference ID
+CREATE OR REPLACE FUNCTION get_inquiry_by_reference(p_reference_id TEXT)
+RETURNS TABLE (
+    category_id INTEGER,
+    location_id INTEGER,
+    description TEXT,
+    rating INTEGER,
+    complainant_name VARCHAR(255),
+    complainant_phone VARCHAR(20),
+    feedback TEXT,
+    reference_id VARCHAR(50),
+    created_at TIMESTAMPTZ,
+    category_name VARCHAR(255),
+    location_name VARCHAR(255)
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        i.category_id,
+        i.location_id,
+        i.description,
+        i.rating,
+        i.complainant_name,
+        i.complainant_phone,
+        i.feedback,
+        i.reference_id,
+        i.created_at,
+        c.name::VARCHAR(255) AS category_name,
+        l.name::VARCHAR(255) AS location_name
+    FROM inquiries i
+    JOIN categories c ON i.category_id = c.id
+    JOIN locations l ON i.location_id = l.id
+    WHERE i.reference_id = p_reference_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Secure feedback submission with double rating check and boundary verification
+CREATE OR REPLACE FUNCTION submit_inquiry_feedback(
+    p_reference_id TEXT,
+    p_rating INTEGER,
+    p_feedback TEXT
+)
+RETURNS VOID AS $$
+DECLARE
+    v_existing_rating INTEGER;
+BEGIN
+    -- Validate rating boundary
+    IF p_rating < 1 OR p_rating > 5 THEN
+        RAISE EXCEPTION 'Rating must be between 1 and 5.';
+    END IF;
+
+    -- Validate feedback character length boundary
+    IF p_feedback IS NOT NULL AND char_length(p_feedback) > 1000 THEN
+        RAISE EXCEPTION 'Feedback must be 1000 characters or less.';
+    END IF;
+
+    -- Lock the row and check for existing feedback to prevent duplicate rating submissions
+    SELECT rating INTO v_existing_rating
+    FROM inquiries
+    WHERE reference_id = p_reference_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Inquiry with reference ID % not found.', p_reference_id;
+    END IF;
+
+    IF v_existing_rating IS NOT NULL AND v_existing_rating > 0 THEN
+        RAISE EXCEPTION 'Feedback has already been logged for this inquiry.';
+    END IF;
+
+    -- Perform secure update
+    UPDATE inquiries
+    SET rating = p_rating,
+        feedback = p_feedback
+    WHERE reference_id = p_reference_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ==========================================
+-- 6. ROLES PRIVILEGES (GRANT ACCESS)
+-- ==========================================
+
+-- Grant schema access
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+
+-- Grant table privileges
+GRANT SELECT ON TABLE public.categories TO anon, authenticated;
+GRANT SELECT ON TABLE public.locations TO anon, authenticated;
+
+-- Inquiries table privileges
+-- Grant full privileges only to authenticated users (admin role)
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.inquiries TO authenticated;
+-- Grant ONLY INSERT privilege to anon users (anonymous public submissions)
+GRANT INSERT ON TABLE public.inquiries TO anon;
+
+-- Revoke direct SELECT & UPDATE privileges from anon to enforce function-only queries
+REVOKE SELECT, UPDATE ON TABLE public.inquiries FROM anon;
+
+-- Grant sequence privileges (to allow SERIAL auto-increment ID generation)
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- Grant execution rights to the secure database RPCs
+GRANT EXECUTE ON FUNCTION public.get_inquiry_by_reference(TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_inquiry_feedback(TEXT, INTEGER, TEXT) TO anon, authenticated;
+

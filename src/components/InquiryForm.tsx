@@ -72,6 +72,15 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
       setError('Please write a brief description of what happened (at least 15 characters).');
       return false;
     }
+    const phoneVal = complainantPhone.trim();
+    if (phoneVal) {
+      // Allows +91, 0, or no prefix, followed by 10 digits starting with 6-9 (optional spaces/hyphens stripped)
+      const phoneRegex = /^(?:\+91|0)?[6-9]\d{9}$/;
+      if (!phoneRegex.test(phoneVal.replace(/[\s-]/g, ''))) {
+        setError('Please enter a valid 10-digit phone number (optionally prefixed with +91 or 0).');
+        return false;
+      }
+    }
     setError(null);
     return true;
   };

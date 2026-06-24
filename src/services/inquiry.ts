@@ -19,61 +19,59 @@ export async function submitInquiry(formData: Omit<CyberInquiry, 'rating' | 'fee
   return data?.reference_id || '';
 }
 
-// Update rating and feedback
+// Update rating and feedback securely via database function
 export async function submitFeedback(referenceId: string, rating: number, feedback?: string): Promise<void> {
   const { error } = await supabase
-    .from('inquiries')
-    .update({
-      rating,
-      feedback: feedback?.trim() || null,
-    })
-    .eq('reference_id', referenceId);
+    .rpc('submit_inquiry_feedback', {
+      p_reference_id: referenceId,
+      p_rating: rating,
+      p_feedback: feedback?.trim() || null,
+    });
 
   if (error) throw error;
 }
 
-// Fetch inquiry details by reference ID with 7-day expiration check
+// Fetch inquiry details by reference ID with 30-day expiration check securely via database function
 export async function fetchInquiryByReference(referenceId: string): Promise<CyberInquiry | null> {
   const { data, error } = await supabase
-    .from('inquiries')
-    .select(`
-      category_id,
-      location_id,
-      description,
-      rating,
-      complainant_name,
-      complainant_phone,
-      feedback,
-      reference_id,
-      created_at,
-      categories ( name ),
-      locations ( name )
-    `)
-    .eq('reference_id', referenceId)
+    .rpc('get_inquiry_by_reference', {
+      p_reference_id: referenceId,
+    })
     .maybeSingle();
 
   if (error) throw error;
   if (!data) return null;
 
-  const createdTime = new Date(data.created_at).getTime();
+  const caseData = data as {
+    category_id: number;
+    location_id: number;
+    description: string;
+    rating: number | null;
+    complainant_name: string | null;
+    complainant_phone: string | null;
+    feedback: string | null;
+    reference_id: string;
+    created_at: string;
+    category_name: string;
+    location_name: string;
+  };
+
+  const createdTime = new Date(caseData.created_at).getTime();
   const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
   if (Date.now() - createdTime > thirtyDaysInMs) {
     return null;
   }
 
-  const categoryName = (data.categories as any)?.name || String(data.category_id);
-  const locationName = (data.locations as any)?.name || String(data.location_id);
-
   return {
-    category: categoryName,
-    location: locationName,
-    description: data.description,
-    rating: data.rating || undefined,
-    complainantName: data.complainant_name || undefined,
-    complainantPhone: data.complainant_phone || undefined,
-    feedback: data.feedback || undefined,
-    referenceId: data.reference_id,
-    createdAt: data.created_at,
+    category: caseData.category_name,
+    location: caseData.location_name,
+    description: caseData.description,
+    rating: caseData.rating || undefined,
+    complainantName: caseData.complainant_name || undefined,
+    complainantPhone: caseData.complainant_phone || undefined,
+    feedback: caseData.feedback || undefined,
+    referenceId: caseData.reference_id,
+    createdAt: caseData.created_at,
   };
 }
 
