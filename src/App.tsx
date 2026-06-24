@@ -18,7 +18,7 @@ export default function App() {
     <div className="min-h-screen bg-kerala-gray font-sans text-slate-800 antialiased flex flex-col justify-between selection:bg-kerala-gold/20 selection:text-kerala-navy">
       <Header />
 
-      <main className="flex-grow flex items-center justify-center py-6 sm:py-10 px-4">
+      <main className="flex-grow flex items-center justify-center py-6 sm:py-10 px-4 mt-8">
         <div className="w-full max-w-xl bg-white border border-slate-200 shadow-sm rounded overflow-hidden flex flex-col">
           <AnimatePresence mode="wait">
             {!submitted ? (
