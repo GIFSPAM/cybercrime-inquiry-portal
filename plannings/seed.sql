@@ -28,8 +28,10 @@ CREATE TABLE IF NOT EXISTS inquiries (
     feedback TEXT,
     reference_id VARCHAR(50) UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    money_lost NUMERIC(12, 2) DEFAULT NULL,
     CONSTRAINT chk_description_length CHECK (char_length(description) <= 1500),
-    CONSTRAINT chk_feedback_length CHECK (feedback IS NULL OR char_length(feedback) <= 1000)
+    CONSTRAINT chk_feedback_length CHECK (feedback IS NULL OR char_length(feedback) <= 1000),
+    CONSTRAINT chk_money_lost_positive CHECK (money_lost IS NULL OR money_lost >= 0)
 );
 
 -- ==========================================
@@ -109,6 +111,7 @@ ON inquiries FOR INSERT WITH CHECK (
 -- ==========================================
 
 -- Secure lookup of case details by reference ID
+DROP FUNCTION IF EXISTS get_inquiry_by_reference(text);
 CREATE OR REPLACE FUNCTION get_inquiry_by_reference(p_reference_id TEXT)
 RETURNS TABLE (
     category_id INTEGER,
@@ -121,7 +124,8 @@ RETURNS TABLE (
     reference_id VARCHAR(50),
     created_at TIMESTAMPTZ,
     category_name VARCHAR(255),
-    location_name VARCHAR(255)
+    location_name VARCHAR(255),
+    money_lost NUMERIC
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -136,7 +140,8 @@ BEGIN
         i.reference_id,
         i.created_at,
         c.name::VARCHAR(255) AS category_name,
-        l.name::VARCHAR(255) AS location_name
+        l.name::VARCHAR(255) AS location_name,
+        i.money_lost
     FROM inquiries i
     JOIN categories c ON i.category_id = c.id
     JOIN locations l ON i.location_id = l.id
@@ -187,12 +192,15 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Secure creation of a new inquiry (returns generated reference ID)
+DROP FUNCTION IF EXISTS create_inquiry(integer, integer, text, varchar, varchar);
+DROP FUNCTION IF EXISTS create_inquiry(integer, integer, text, varchar, varchar, numeric);
 CREATE OR REPLACE FUNCTION create_inquiry(
     p_category_id INTEGER,
     p_location_id INTEGER,
     p_description TEXT,
     p_complainant_name VARCHAR(255),
-    p_complainant_phone VARCHAR(20)
+    p_complainant_phone VARCHAR(20),
+    p_money_lost NUMERIC DEFAULT NULL
 )
 RETURNS TEXT AS $$
 DECLARE
@@ -213,20 +221,27 @@ BEGIN
         END IF;
     END IF;
 
+    -- Validate money lost is non-negative
+    IF p_money_lost IS NOT NULL AND p_money_lost < 0 THEN
+        RAISE EXCEPTION 'Financial loss cannot be negative.';
+    END IF;
+
     -- Insert record (trigger generates reference_id)
     INSERT INTO inquiries (
         category_id,
         location_id,
         description,
         complainant_name,
-        complainant_phone
+        complainant_phone,
+        money_lost
     )
     VALUES (
         p_category_id,
         p_location_id,
         p_description,
         NULLIF(p_complainant_name, ''),
-        NULLIF(p_complainant_phone, '')
+        NULLIF(p_complainant_phone, ''),
+        NULLIF(p_money_lost, 0)
     )
     RETURNING reference_id INTO v_reference_id;
 
@@ -256,7 +271,7 @@ REVOKE SELECT, INSERT, UPDATE ON TABLE public.inquiries FROM anon;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 
 -- Grant execution rights to the secure database RPCs
-GRANT EXECUTE ON FUNCTION public.create_inquiry(INTEGER, INTEGER, TEXT, VARCHAR, VARCHAR) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_inquiry(INTEGER, INTEGER, TEXT, VARCHAR, VARCHAR, NUMERIC) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_inquiry_by_reference(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.submit_inquiry_feedback(TEXT, INTEGER, TEXT) TO anon, authenticated;
 

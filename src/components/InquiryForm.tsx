@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, AlertCircle, LayoutGrid, Info, User, FileText, Loader2 } from 'lucide-react';
+import { Send, AlertCircle, LayoutGrid, Info, User, FileText, Loader2, IndianRupee } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Combobox from './Combobox';
 import { CyberInquiry, Location } from '../types/inquiry';
@@ -31,6 +31,7 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
   const [description, setDescription]         = useState('');
   const [complainantName, setComplainantName] = useState('');
   const [complainantPhone, setComplainantPhone] = useState('');
+  const [moneyLost, setMoneyLost]             = useState('');
 
   // UI states
   const [error, setError]               = useState<string | null>(null);
@@ -81,6 +82,14 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
         return false;
       }
     }
+    const moneyVal = moneyLost.trim();
+    if (moneyVal) {
+      const amount = Number(moneyVal);
+      if (isNaN(amount) || amount < 0) {
+        setError('Please enter a valid, non-negative financial loss amount.');
+        return false;
+      }
+    }
     setError(null);
     return true;
   };
@@ -99,6 +108,7 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
         description,
         complainantName:  complainantName.trim()  || undefined,
         complainantPhone: complainantPhone.trim() || undefined,
+        moneyLost:        moneyLost.trim() ? Number(moneyLost) : undefined,
       });
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -259,7 +269,37 @@ export default function InquiryForm({ onSubmit }: InquiryFormProps) {
           </div>
         </div>
 
-        {/* Section 3 — Description */}
+        {/* Section 3 — Financial Loss (optional) */}
+        <div className="space-y-3 text-left">
+          <label className="text-[11px] font-mono uppercase tracking-wider font-extrabold text-kerala-navy flex items-center gap-1.5">
+            <IndianRupee className="w-3.5 h-3.5 text-kerala-gold" />
+            <span>
+              Financial Loss{' '}
+              <span className="text-slate-400 font-normal font-sans text-[10px] lowercase">(optional)</span>
+            </span>
+          </label>
+
+          <div className="relative">
+            <span className="absolute left-3.5 top-3 text-slate-400 font-bold text-xs sm:text-sm">
+              ₹
+            </span>
+            <input
+              type="number"
+              id="financial-loss"
+              value={moneyLost}
+              onChange={(e) => { setMoneyLost(e.target.value); clearError(); }}
+              placeholder="e.g., 15000 (leave blank if no money was lost)"
+              className={`${inputClass} pl-7`}
+              min="0"
+              step="any"
+            />
+            <p className="text-[10px] text-slate-400 font-sans mt-1">
+              Enter the approximate amount lost in Indian Rupees (INR) if applicable.
+            </p>
+          </div>
+        </div>
+
+        {/* Section 4 — Description */}
         <div className="space-y-3 text-left">
           <label className="text-[11px] font-mono uppercase tracking-wider font-extrabold text-kerala-navy flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-kerala-gold" />

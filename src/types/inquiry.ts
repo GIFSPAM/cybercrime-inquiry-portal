@@ -7,6 +7,7 @@ export interface CyberInquiry {
   complainantPhone?: string;
   feedback?: string;
   referenceId?: string;
+  moneyLost?: number;
   createdAt?: string;
 }
 

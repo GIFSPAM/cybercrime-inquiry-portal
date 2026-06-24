@@ -10,6 +10,7 @@ export async function submitInquiry(formData: Omit<CyberInquiry, 'rating' | 'fee
       p_description: formData.description,
       p_complainant_name: formData.complainantName || null,
       p_complainant_phone: formData.complainantPhone || null,
+      p_money_lost: formData.moneyLost !== undefined ? formData.moneyLost : null,
     });
 
   if (error) throw error;
@@ -51,6 +52,7 @@ export async function fetchInquiryByReference(referenceId: string): Promise<Cybe
     created_at: string;
     category_name: string;
     location_name: string;
+    money_lost: number | null;
   };
 
   const createdTime = new Date(caseData.created_at).getTime();
@@ -69,6 +71,7 @@ export async function fetchInquiryByReference(referenceId: string): Promise<Cybe
     feedback: caseData.feedback || undefined,
     referenceId: caseData.reference_id,
     createdAt: caseData.created_at,
+    moneyLost: caseData.money_lost !== null ? caseData.money_lost : undefined,
   };
 }
 

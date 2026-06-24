@@ -68,6 +68,7 @@ erDiagram
   |     | complainant_name  : VARCHAR(255)      |
   |     | complainant_phone : VARCHAR(20)       |
   |     | feedback          : TEXT              |
+  |     | money_lost        : NUMERIC(12,2)     |
   |     | created_at        : TIMESTAMP         |
   +---------------------------------------------+
 ```
@@ -107,6 +108,7 @@ Main table where feedback submissions are logged.
 | `complainant_name`  | `VARCHAR(255)` | `NULLABLE`                                          | Complainant name (if provided).  |
 | `complainant_phone` | `VARCHAR(20)`  | `NULLABLE`                                          | Complainant phone (if provided). |
 | `feedback`          | `TEXT`         | `NULLABLE`                                          | UI/Portal improvement feedback.  |
+| `money_lost`        | `NUMERIC(12,2)`| `NULLABLE`, `CHECK (money_lost >= 0)`               | Optional financial loss amount.  |
 | `created_at`        | `TIMESTAMP`    | `DEFAULT CURRENT_TIMESTAMP`                         | Log insertion time.              |
 
 ---
@@ -138,6 +140,7 @@ CREATE TABLE inquiries (
     complainant_name VARCHAR(255),
     complainant_phone VARCHAR(20),
     feedback TEXT,
+    money_lost NUMERIC(12,2) CHECK (money_lost IS NULL OR money_lost >= 0),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

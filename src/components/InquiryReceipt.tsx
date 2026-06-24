@@ -155,7 +155,23 @@ export default function InquiryReceipt({ referenceId, caseDetails, onReset }: In
                 <span className="text-slate-400 block text-[10px] font-bold uppercase font-mono">Location</span>
                 <span className="font-semibold text-slate-800">{caseDetails.location}</span>
               </div>
-              <div className="col-span-2 pt-1">
+
+              {caseDetails.moneyLost !== undefined && caseDetails.moneyLost !== null && (
+                <div className="col-span-2 border-t border-slate-100 pt-2 flex items-center justify-between">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold uppercase font-mono">Financial Loss Reported</span>
+                    <span className="font-extrabold text-sm text-rose-600 font-mono">
+                      ₹ {caseDetails.moneyLost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="bg-rose-50 text-rose-700 text-[10px] font-bold uppercase font-mono px-2.5 py-1 rounded-full border border-rose-100 flex items-center gap-1 select-none">
+                    <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
+                    Financial Impact Case
+                  </div>
+                </div>
+              )}
+
+              <div className="col-span-2 pt-1 border-t border-slate-100">
                 <span className="text-slate-400 block text-[10px] font-bold uppercase font-mono">Narrative Brief</span>
                 <p className="text-slate-650 leading-relaxed truncate-2-lines text-xs font-sans mt-0.5">
                   {caseDetails.description}
